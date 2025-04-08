@@ -12,7 +12,8 @@ class DeviceHeartbeatBot {
         this.proxyConfig = proxyConfig;
         this.baseUrls = {
             secApi: 'https://naorisprotocol.network/sec-api/api',
-            testnetApi: 'https://naorisprotocol.network/testnet-api/api/testnet'
+            testnetApi: 'https://naorisprotocol.network/testnet-api/api/testnet',
+            pingApi: 'https://beat.naorisprotocol.network/api/ping'
         };
         this.uptimeMinutes = 0;
         this.deviceHash = account.deviceHash;
@@ -120,6 +121,27 @@ class DeviceHeartbeatBot {
         }
     }
 
+
+    async sendPing() {
+        try {
+
+            const session = new TlsClient.Session({
+                clientIdentifier:"chrome_132"
+            });
+            const response = await session.post(
+                `${this.baseUrls.pingApi}`,
+                {
+                    json: {},
+                    headers: this.getRequestConfig().headers,
+                    proxy: this.proxyConfig
+                }
+            );
+            this.logSuccess('Heartbeat', response.text);
+        } catch (error) {
+            this.logError('Heartbeat Error', error);
+        }
+    }
+
     async GetToken(walletAddress) {
         try {
             this.logSuccess("Get token");
@@ -177,7 +199,7 @@ class DeviceHeartbeatBot {
         try {
             await this.toggleDevice("ON");
             console.log("Installed script executed successfully!");
-            await this.sendHeartbeat();
+            await this.sendPing();
 
             let cycleCount = 0;
             const timer = setInterval(async () => {
@@ -193,7 +215,7 @@ class DeviceHeartbeatBot {
                         await this.toggleDevice("ON");
                     }
 
-                    await this.sendHeartbeat();
+                    await this.sendPing();
                     await this.getWalletDetails();
                     console.log(chalk.green(`[${new Date().toLocaleTimeString()}] Minute ${this.uptimeMinutes} completed`));
                 } catch (cycleError) {
@@ -201,7 +223,7 @@ class DeviceHeartbeatBot {
                     this.logError('Heartbeat Cycle', cycleError);
                     this.toggleState = false;
                 }
-            }, 60000);
+            }, 10000); // 10 seconds
 
             process.on('SIGINT', async () => {
                 clearInterval(timer);
